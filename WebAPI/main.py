@@ -14,7 +14,7 @@ app = FastAPI()
 security = HTTPBearer()
 
 # Security settings
-SECRET_KEY = "your_secret_key"
+SECRET_KEY = "secretkey"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
