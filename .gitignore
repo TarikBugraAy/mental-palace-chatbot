@@ -1,0 +1,39 @@
+# Ignore Python compiled files
+__pycache__/
+*.py[cod]
+*.so
+
+# Ignore virtual environment directories
+env/
+venv/
+ENV/
+VENV/
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore system-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore logs and temporary files
+*.log
+*.tmp
+*.bak
+
+# Ignore archive and backup files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Ignore binary and object files
+*.o
+*.out
+*.a
+*.dSYM/
+
+# Ignore all .pkl files
+*.pkl
+
+*version.py
