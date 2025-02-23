@@ -1,91 +1,183 @@
-# main.py
 import os
+import sqlite3
+import streamlit as st
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, HTTPException
-from sqlalchemy.orm import Session
-from database import SessionLocal, engine, Base
-from models import ChatHistory, User
 from langchain.memory import ConversationBufferMemory
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
 import google.generativeai as genai
-import warnings
-from langchain_core._api.deprecation import LangChainDeprecationWarning
+from langchain.chains import LLMChain
+import hashlib
 
-warnings.filterwarnings("ignore", category=LangChainDeprecationWarning)
+# Load API key
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
 if not GEMINI_API_KEY:
     raise ValueError("Missing GEMINI_API_KEY. Set it in the .env file.")
 
 # Configure Gemini API
 genai.configure(api_key=GEMINI_API_KEY)
-chat_model = ChatGoogleGenerativeAI(model="gemini-pro", google_api_key=GEMINI_API_KEY)
+
+# Initialize AI model
+chat_model = ChatGoogleGenerativeAI(
+    model="gemini-pro",
+    google_api_key=GEMINI_API_KEY,
+    max_output_tokens=2048,
+    temperature=0.7
+)
+
+# **Conversation Memory**
 memory = ConversationBufferMemory(memory_key="history", return_messages=True)
 
+# **Prompt Template**
 mental_health_prompt = PromptTemplate(
     input_variables=["history", "input"],
     template="""
-You are Hunter Schafer, an empathetic AI mental health companion. Your purpose is to provide a safe, non-judgmental space for users to share their feelings, reflect on their emotions, and receive gentle advice on self-care. Remember: you are not a licensed therapist and cannot diagnose or treat mental health conditions. Always encourage seeking professional help when necessary.
-
-How to respond:
-- Begin by acknowledging the user's feelings with genuine empathy.
-- Use warm, natural, and supportive language that feels both caring and respectful.
-- When appropriate, offer suggestions for self-care, such as engaging in physical activities (like sports, walking, or yoga), hobbies, or mindfulness exercises to help improve mood.
-- Encourage further reflection by asking open-ended questions.
-- Provide practical advice in a gentle manner, but emphasize that your advice is informational only.
-- If the user expresses severe distress or suicidal thoughts, advise them to immediately contact trusted individuals or emergency services.
+You are Mental Palace, an empathetic, creative, and highly personalized AI mental health companion. 
+Your purpose is to provide a safe, non-judgmental space for users to share their feelings. 
+Remember: you are not a licensed therapist and cannot diagnose or treat mental health conditions. 
+Always encourage seeking professional help when necessary.
 
 Conversation History:
 {history}
 
 User: {input}
-Hunter Schafer:
+Mental Palace:
 """
 )
 
+# **LLM Chain**
 chat_chain = LLMChain(
     llm=chat_model,
     prompt=mental_health_prompt,
     memory=memory
-)   
+)
 
-app = FastAPI()
+# **Database Setup**
+def init_db():
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+    # Create users table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+                      id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                      username TEXT UNIQUE, 
+                      password TEXT)''')
 
-# Dependency: get DB session
-def get_db():
-    db = SessionLocal()
+    # Create chat history table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS chat_history (
+                      id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                      user TEXT, 
+                      message TEXT, 
+                      response TEXT)''')
+    
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# **User Authentication Functions**
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def register_user(username, password):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
     try:
-        yield db
+        cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hash_password(password)))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
     finally:
-        db.close()
+        conn.close()
 
-# Endpoint to log chat history
-@app.post("/chat/")
-def log_chat(user_id: int, user_message: str, ai_response: str, db: Session = Depends(get_db)):
-    chat_entry = ChatHistory(user_id=user_id, user_message=user_message, ai_response=ai_response)
-    db.add(chat_entry)
-    db.commit()
-    db.refresh(chat_entry)
-    return chat_entry
+def authenticate_user(username, password):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE username=? AND password=?", (username, hash_password(password)))
+    user = cursor.fetchone()
+    conn.close()
+    return user is not None
 
-# Endpoint for chatbot interaction
-@app.post("/interact/")
-def interact(user_id: int, message: str, db: Session = Depends(get_db)):
-    # Optionally, load previous conversation from DB and set it in memory
-    # For simplicity, we're using in-memory conversation here.
-    response = chat_chain.invoke({"input": message})
-    # Log chat interaction
-    chat_entry = ChatHistory(user_id=user_id, user_message=message, ai_response=response["text"])
-    db.add(chat_entry)
-    db.commit()
-    db.refresh(chat_entry)
-    return {"response": response["text"], "chat_id": chat_entry.id}
+# **Save Chat History**
+def save_chat(user, message, response):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO chat_history (user, message, response) VALUES (?, ?, ?)", (user, message, response))
+    conn.commit()
+    conn.close()
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+# **Load Chat History**
+def load_chat_history(user):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT message, response FROM chat_history WHERE user=?", (user,))
+    history = cursor.fetchall()
+    conn.close()
+    return history
+
+# **Streamlit UI**
+st.set_page_config(page_title="AI Mental Health Chatbot", page_icon="💬")
+
+st.title("🧠 Mental Palace - AI Mental Health Companion")
+
+# **Login/Register Panel**
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+    st.session_state["username"] = None
+
+if not st.session_state["authenticated"]:
+    option = st.radio("Login or Register", ["Login", "Register"])
+
+    username = st.text_input("Username", key="username_input")
+    password = st.text_input("Password", type="password", key="password_input")
+
+    if option == "Register":
+        if st.button("Sign Up"):
+            if register_user(username, password):
+                st.success("Account created! Please log in.")
+            else:
+                st.error("Username already exists.")
+
+    if option == "Login":
+        if st.button("Log In"):
+            if authenticate_user(username, password):
+                st.session_state["authenticated"] = True
+                st.session_state["username"] = username
+                st.success(f"Welcome back, {username}!")
+            else:
+                st.error("Invalid username or password.")
+
+else:
+    st.write(f"👋 Welcome, **{st.session_state['username']}**!")
+    st.write("Type below to chat with the AI.")
+
+    # Load past chat history
+    chat_history = load_chat_history(st.session_state["username"])
+    
+    # Display chat history
+    for message, response in chat_history:
+        st.chat_message("user").write(message)
+        st.chat_message("assistant").write(response)
+
+    # User input
+    user_input = st.chat_input("Type your message here...")
+
+    if user_input:
+        # Generate AI Response
+        response = chat_chain.invoke({"input": user_input})["text"]
+        
+        # Display conversation
+        st.chat_message("user").write(user_input)
+        st.chat_message("assistant").write(response)
+
+        # Save conversation to DB
+        save_chat(st.session_state["username"], user_input, response)
+
+    # Logout button
+    if st.button("Logout"):
+        st.session_state["authenticated"] = False
+        st.session_state["username"] = None
+        st.experimental_rerun()
