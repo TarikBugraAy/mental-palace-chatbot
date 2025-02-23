@@ -25,5 +25,6 @@ def show_auth_page():
                     st.session_state["authenticated"] = True
                     st.session_state["username"] = username
                     st.success(f"Welcome back, {username}!")
+                    st.rerun()  
                 else:
                     st.error("Invalid username or password.")

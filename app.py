@@ -8,13 +8,17 @@ init_db()
 
 st.set_page_config(page_title="Mental Palace", page_icon="💬", layout="wide")
 
-st.title("🧠 Mental Palace - AI Mental Health Companion")
+# **Display Custom Logo**
+st.image("img/logo.jpg", width=120)  # Main Page Logo
+st.title("Mental Palace - AI Mental Health Companion")
 
 # **Login/Register System**
 show_auth_page()
 
 # **Handle Chat Sessions**
 if "authenticated" in st.session_state and st.session_state["authenticated"]:
+    # **Sidebar Section**
+    st.sidebar.image("img/logo.jpg", width=200)  # Sidebar Logo
     st.sidebar.title("💬 Chat Sessions")
 
     # Fetch user chat sessions
@@ -78,3 +82,9 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
 
             # Save conversation
             save_chat(st.session_state["selected_session"], st.session_state["username"], user_input, response)
+
+    # **Logout Button at Bottom of Sidebar**
+    st.sidebar.markdown("---")  # Adds a separator
+    if st.sidebar.button("🚪 Log Out", key="logout_button"):
+        st.session_state.clear()  # Clear all session data
+        st.rerun()  # Reload the app
