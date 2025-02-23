@@ -17,16 +17,18 @@ show_auth_page()
 
 # **Handle Chat Sessions**
 if "authenticated" in st.session_state and st.session_state["authenticated"]:
+    username = st.session_state["username"]  # Store username
+
     # **Sidebar Section**
     st.sidebar.image("img/logo.jpg", width=200)  # Sidebar Logo
-    st.sidebar.title("💬 Chat Sessions")
+    st.sidebar.title(f"💬 {username}'s Chat Sessions")  # Display username
 
     # Fetch user chat sessions
-    user_sessions = get_sessions(st.session_state["username"])
+    user_sessions = get_sessions(username)
 
     # Ensure a default chat session is created on login
     if not user_sessions:
-        new_session_id, new_session_name = create_new_session(st.session_state["username"])
+        new_session_id, new_session_name = create_new_session(username)
         user_sessions = [(new_session_id, new_session_name)]  # Add new session to list
 
     # Store session selection
@@ -43,7 +45,7 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
 
     # New chat button
     if st.sidebar.button("🆕 New Chat"):
-        new_session_id, new_session_name = create_new_session(st.session_state["username"])
+        new_session_id, new_session_name = create_new_session(username)
         if new_session_id:
             st.session_state["selected_session"] = new_session_id
             st.rerun()
@@ -74,14 +76,14 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
         user_input = st.chat_input("Type your message here...")
 
         if user_input:
-            response = get_response(user_input)
+            response = get_response(st.session_state["username"], user_input)  # Ensures correct user memory
 
             # Display chat
             st.chat_message("user").write(user_input)
             st.chat_message("assistant").write(response)
 
             # Save conversation
-            save_chat(st.session_state["selected_session"], st.session_state["username"], user_input, response)
+            save_chat(st.session_state["selected_session"], username, user_input, response)
 
     # **Logout Button at Bottom of Sidebar**
     st.sidebar.markdown("---")  # Adds a separator
