@@ -8,7 +8,7 @@ init_db()
 
 st.set_page_config(page_title="Mental Palace", page_icon="💬", layout="wide")
 
-# **Display Custom Logo in Sidebar ONLY (Removed Top Logo)**
+
 st.sidebar.image("img/logo.jpg", width=200)  # Sidebar Logo
 st.title("Mental Palace - AI Mental Health Companion")
 
@@ -17,10 +17,10 @@ show_auth_page()
 
 # **Handle Chat Sessions**
 if "authenticated" in st.session_state and st.session_state["authenticated"]:
-    username = st.session_state["username"]  # Store username
+    username = st.session_state["username"]  
 
     # **Sidebar Section**
-    st.sidebar.title(f"💬 {username}'s Chat Sessions")  # Display username
+    st.sidebar.title(f"💬 {username}'s Chat Sessions")  
 
     # **Persona Selection**
     st.sidebar.markdown("### 🧠 Choose Your AI Persona")
@@ -32,13 +32,13 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
     }
 
     selected_persona = st.sidebar.selectbox("Select a Persona:", list(persona_options.keys()), key="persona_select")
-    st.session_state["selected_persona"] = selected_persona  # Store persona in session state
+    st.session_state["selected_persona"] = selected_persona  
     st.sidebar.markdown(f"📝 *{persona_options[selected_persona]}*")
 
     # Fetch user chat sessions
     user_sessions = get_sessions(username)
 
-    # **Do NOT Open a Chat Automatically** → Always start with a welcome message
+
     st.session_state["selected_session"] = None  # Force session to remain unselected
 
     # Display available chat sessions
@@ -49,7 +49,7 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
     if selected_session_name:
         st.session_state["selected_session"] = session_options[selected_session_name]
 
-    # **New Chat Button (User Must Manually Start)**
+    # **New Chat Button**
     if st.sidebar.button("🆕 New Chat"):
         new_session_id, new_session_name = create_new_session(username)
         if new_session_id:
@@ -76,8 +76,8 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
         # Load chat history
         chat_history = load_chat_history(st.session_state["selected_session"])
         for message, response in chat_history:
-            st.chat_message("user", avatar="🌸").write(message)  # Neutral emoji for user
-            st.chat_message("assistant", avatar="🤖").write(response)  # Robot for AI
+            st.chat_message("user", avatar="🌸").write(message) 
+            st.chat_message("assistant", avatar="🤖").write(response)  
 
         # User input
         user_input = st.chat_input("Type your message here...")
@@ -93,12 +93,12 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
             save_chat(st.session_state["selected_session"], username, user_input, response)
 
     else:
-        # **Always Show Welcome Message on Login**
+
         st.markdown(f"### 👋 Welcome, {username}!")
         st.markdown("Select an existing chat from the left panel or start a **new chat** to begin.")
 
     # **Logout Button at Bottom of Sidebar**
-    st.sidebar.markdown("---")  # Adds a separator
+    st.sidebar.markdown("---")  
     if st.sidebar.button("🚪 Log Out", key="logout_button"):
-        st.session_state.clear()  # Clear all session data
-        st.rerun()  # Reload the app
+        st.session_state.clear()  
+        st.rerun() 

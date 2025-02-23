@@ -65,7 +65,7 @@ def create_new_session(user):
     cursor = conn.cursor()
 
     # Ensure unique session names by adding a timestamp
-    timestamp = time.strftime("%H-%M-%S")  # Adds hour-minute-second for uniqueness
+    timestamp = time.strftime("%H-%M-%S")  
     session_name = f"{datetime.datetime.now().strftime('%Y-%m-%d')}_{timestamp} Chat"
 
     try:
@@ -74,7 +74,7 @@ def create_new_session(user):
         session_id = cursor.lastrowid
         return session_id, session_name
     except sqlite3.IntegrityError:
-        return None, None  # If error occurs (e.g., duplicate session name)
+        return None, None  
     finally:
         conn.close()
 

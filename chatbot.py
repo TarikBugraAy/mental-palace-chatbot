@@ -24,8 +24,8 @@ chat_model = ChatGoogleGenerativeAI(
     temperature=0.7
 )
 
-# **Memory System**
-user_memory = {}  # Dictionary to store memory per user
+
+user_memory = {}  
 
 def get_memory_for_user(username):
     """Retrieve or create memory for a user."""
@@ -33,7 +33,7 @@ def get_memory_for_user(username):
         user_memory[username] = ConversationBufferMemory(memory_key="history", return_messages=True)
     return user_memory[username]
 
-# **Enhanced Persona-Based Prompts**
+# **Persona-Based Prompts**
 persona_prompts = {
     "Mental Palace Counselor": """
     You are the Mental Palace Counselor, an AI designed to provide **balanced and structured mental health support**. 
@@ -140,7 +140,7 @@ persona_prompts = {
     """
 }
 
-# **Function to Get AI Response with Persona Selection**
+# Function to Get AI Response with Persona Selection
 def get_response(username, user_input, selected_persona="Mental Palace Counselor"):
     """
     Generates a chatbot response based on the selected AI persona.
