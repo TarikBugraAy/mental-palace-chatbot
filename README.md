@@ -46,8 +46,8 @@ pip install -r requirements.txt
 
 ### 1️⃣ Clone the Repository
 ```sh
-git clone https://github.com/your-username/MentalPalace.git
-cd MentalPalace
+git clone https://github.com/TarikBugraAy/mental-palace-chatbot.git
+cd mental-palace-chatbot
 ```
 
 ### 2️⃣ Install Dependencies
