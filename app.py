@@ -1,47 +1,80 @@
 import streamlit as st
-from database import load_chat_history, save_chat, init_db
+from database import init_db, create_new_session, get_sessions, rename_session, delete_session, save_chat, load_chat_history
 from auth import show_auth_page
 from chatbot import get_response
 
 # Initialize database
 init_db()
 
-# Streamlit UI
-st.set_page_config(page_title="Mental Palace", page_icon="💬")
+st.set_page_config(page_title="Mental Palace", page_icon="💬", layout="wide")
 
 st.title("🧠 Mental Palace - AI Mental Health Companion")
 
 # **Login/Register System**
 show_auth_page()
 
-# **Chat UI**
+# **Handle Chat Sessions**
 if "authenticated" in st.session_state and st.session_state["authenticated"]:
-    st.write(f"👋 Welcome, **{st.session_state['username']}**!")
-    st.write("Type below to chat with the AI.")
+    st.sidebar.title("💬 Chat Sessions")
 
-    # Load past chat history
-    chat_history = load_chat_history(st.session_state["username"])
-    
-    # Display chat history
-    for message, response in chat_history:
-        st.chat_message("user").write(message)
-        st.chat_message("assistant").write(response)
+    # Fetch user chat sessions
+    user_sessions = get_sessions(st.session_state["username"])
 
-    # User input
-    user_input = st.chat_input("Type your message here...")
+    # Ensure a default chat session is created on login
+    if not user_sessions:
+        new_session_id, new_session_name = create_new_session(st.session_state["username"])
+        user_sessions = [(new_session_id, new_session_name)]  # Add new session to list
 
-    if user_input:
-        response = get_response(user_input)
+    # Store session selection
+    if "selected_session" not in st.session_state:
+        st.session_state["selected_session"] = user_sessions[0][0]  # Default to first session
 
-        # Display chat
-        st.chat_message("user").write(user_input)
-        st.chat_message("assistant").write(response)
+    # Display available chat sessions
+    session_options = {session_name: session_id for session_id, session_name in user_sessions}
+    selected_session_name = st.sidebar.radio("Select a chat:", list(session_options.keys()), key="session_select")
 
-        # Save conversation
-        save_chat(st.session_state["username"], user_input, response)
+    # Update selected session
+    if selected_session_name:
+        st.session_state["selected_session"] = session_options[selected_session_name]
 
-    # Logout button
-    if st.button("Logout"):
-        st.session_state["authenticated"] = False
-        st.session_state["username"] = None
-        st.experimental_rerun()
+    # New chat button
+    if st.sidebar.button("🆕 New Chat"):
+        new_session_id, new_session_name = create_new_session(st.session_state["username"])
+        if new_session_id:
+            st.session_state["selected_session"] = new_session_id
+            st.rerun()
+
+    # Rename session
+    new_name = st.sidebar.text_input("Rename chat:", selected_session_name)
+    if st.sidebar.button("Rename"):
+        rename_session(st.session_state["selected_session"], new_name)
+        st.rerun()
+
+    # Delete session
+    if st.sidebar.button("🗑️ Delete Chat"):
+        delete_session(st.session_state["selected_session"])
+        st.session_state["selected_session"] = None
+        st.rerun()
+
+    # **Chat Interface**
+    if st.session_state["selected_session"]:
+        st.write(f"💬 Chat Session: **{selected_session_name}**")
+
+        # Load chat history
+        chat_history = load_chat_history(st.session_state["selected_session"])
+        for message, response in chat_history:
+            st.chat_message("user").write(message)
+            st.chat_message("assistant").write(response)
+
+        # User input
+        user_input = st.chat_input("Type your message here...")
+
+        if user_input:
+            response = get_response(user_input)
+
+            # Display chat
+            st.chat_message("user").write(user_input)
+            st.chat_message("assistant").write(response)
+
+            # Save conversation
+            save_chat(st.session_state["selected_session"], st.session_state["username"], user_input, response)
