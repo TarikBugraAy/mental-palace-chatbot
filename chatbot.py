@@ -1,7 +1,7 @@
 import os
 import sqlite3
 from dotenv import load_dotenv
-from langchain.memory import ConversationBufferMemory
+from langchain.memory import ConversationSummaryMemory
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
 import google.generativeai as genai
@@ -30,15 +30,14 @@ chat_model = ChatGoogleGenerativeAI(
 DB_PATH = "chat_history.db"
 
 def initialize_db():
-    """Creates a table for storing chat history if it doesn't exist."""
+    """Creates a table for storing summarized chat history if it doesn't exist."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS chat_history (
+        CREATE TABLE IF NOT EXISTS chat_summary (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id TEXT,
-            user_message TEXT,
-            ai_response TEXT
+            user_id TEXT UNIQUE,
+            summary TEXT
         )
     """)
     conn.commit()
@@ -46,29 +45,38 @@ def initialize_db():
 
 initialize_db()  # Run on startup
 
-def save_chat(user_id, user_message, ai_response):
-    """Stores chat messages in SQLite."""
+def save_summary(user_id, summary):
+    """Stores or updates the summary of chat history in SQLite."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO chat_history (user_id, user_message, ai_response) VALUES (?, ?, ?)",
-                   (user_id, user_message, ai_response))
+    
+    # Check if a summary already exists for this user
+    cursor.execute("SELECT summary FROM chat_summary WHERE user_id = ?", (user_id,))
+    existing_summary = cursor.fetchone()
+
+    if existing_summary:
+        # Update existing summary
+        cursor.execute("UPDATE chat_summary SET summary = ? WHERE user_id = ?", (summary, user_id))
+    else:
+        # Insert new summary
+        cursor.execute("INSERT INTO chat_summary (user_id, summary) VALUES (?, ?)", (user_id, summary))
+
     conn.commit()
     conn.close()
+    print(f"✅ Summary saved for {user_id}: {summary}")  # Debugging line
 
-def retrieve_chat_history(user_id):
-    """Retrieves past conversations for a given user."""
+def retrieve_summary(user_id):
+    """Retrieves the latest summary of chat history for a given user."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT user_message, ai_response FROM chat_history WHERE user_id = ?", (user_id,))
-    history = cursor.fetchall()
+    cursor.execute("SELECT summary FROM chat_summary WHERE user_id = ?", (user_id,))
+    summary = cursor.fetchone()
     conn.close()
     
-    # Format history into a readable conversation log
-    formatted_history = "\n".join([f"User: {row[0]}\nHunter Schafer: {row[1]}" for row in history])
-    return formatted_history if formatted_history else "No previous conversations."
+    return summary[0] if summary else "No previous conversation summary found."
 
-# **Improved Memory System (Remembers Conversations)**
-memory = ConversationBufferMemory(memory_key="history", return_messages=True)
+# **Use ConversationSummaryMemory to Generate Summarized History**
+memory = ConversationSummaryMemory(llm=chat_model, memory_key="history")
 
 # **Better Prompt for a More Natural Conversation**
 mental_health_prompt = PromptTemplate(
@@ -81,7 +89,7 @@ mental_health_prompt = PromptTemplate(
     **Crisis Handling 🚨**
     - If a user expresses suicidal thoughts or serious distress, you must respond with **care, support, and encouragement to seek help.**  
 
-    **Conversation History:**
+    **Conversation Summary (Memory Vault):**
     {history}
 
     User: {input}  
@@ -89,7 +97,7 @@ mental_health_prompt = PromptTemplate(
     """
 )
 
-# **Use LLMChain with Memory**
+# **Use LLMChain with Summarization Memory**
 chat_chain = LLMChain(
     llm=chat_model,
     prompt=mental_health_prompt,
@@ -97,19 +105,29 @@ chat_chain = LLMChain(
 )
 
 def chat_with_bot():
-    """Chat interface with persistent memory vault."""
+    """Chat interface with summarized memory vault."""
     user_id = input("Enter your user ID (or type 'guest'): ").strip()
     print("💬 AI Mental Health Chatbot (Type 'exit' to stop)\n")
 
-    # **Retrieve previous chat history for this user**
-    previous_chats = retrieve_chat_history(user_id)
-    print("\n🔹 Your previous conversations:\n")
-    print(previous_chats + "\n")
+    # **Retrieve previous summarized conversation history**
+    previous_summary = retrieve_summary(user_id)
+    print("\n🔹 Your past conversation summary:\n")
+    print(previous_summary + "\n")
 
     while True:
         user_input = input("You: ")
         if user_input.lower() == "exit":
             print("Goodbye! Take care. 💙")
+            
+            # **Ensure memory is updated before saving**
+            memory_output = memory.load_memory_variables({})
+            updated_summary = memory_output.get("history", "No summary available.")
+
+            # Debugging: Print what memory is generating before storing
+            print(f"🔄 Generated Summary Before Saving:\n{updated_summary}\n")
+
+            # **Save summary to database**
+            save_summary(user_id, updated_summary)
             break
 
         # **Generate AI Response using LLMChain with Memory**
@@ -118,10 +136,8 @@ def chat_with_bot():
         # **Extract AI’s response**
         ai_response = response['text']
 
-        # **Save chat to memory vault (SQLite)**
-        save_chat(user_id, user_input, ai_response)
-
         print(f"AI: {ai_response}\n")
 
 if __name__ == "__main__":
     chat_with_bot()
+
