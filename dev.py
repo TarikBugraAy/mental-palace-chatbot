@@ -5,6 +5,11 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
 import google.generativeai as genai
 from langchain.chains import LLMChain
+from langchain.memory import ConversationBufferMemory
+import warnings
+from langchain_core._api.deprecation import LangChainDeprecationWarning
+warnings.filterwarnings("ignore", category=LangChainDeprecationWarning)
+
 
 # Load API key from .env file
 load_dotenv()
@@ -23,7 +28,7 @@ chat_model = ChatGoogleGenerativeAI(
 )
 
 # **Improved Memory System (Remembers Conversations)**
-memory = ConversationSummaryMemory(llm=chat_model)
+memory = ConversationBufferMemory(memory_key="history", return_messages=True)
 
 # **Better Prompt for a More Natural Conversation**
 mental_health_prompt = PromptTemplate(
