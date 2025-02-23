@@ -8,8 +8,8 @@ init_db()
 
 st.set_page_config(page_title="Mental Palace", page_icon="💬", layout="wide")
 
-# **Display Custom Logo**
-st.image("img/logo.jpg", width=120)  # Main Page Logo
+# **Display Custom Logo in Sidebar ONLY (Removed Top Logo)**
+st.sidebar.image("img/logo.jpg", width=200)  # Sidebar Logo
 st.title("Mental Palace - AI Mental Health Companion")
 
 # **Login/Register System**
@@ -20,30 +20,37 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
     username = st.session_state["username"]  # Store username
 
     # **Sidebar Section**
-    st.sidebar.image("img/logo.jpg", width=200)  # Sidebar Logo
     st.sidebar.title(f"💬 {username}'s Chat Sessions")  # Display username
+
+    # **Persona Selection**
+    st.sidebar.markdown("### 🧠 Choose Your AI Persona")
+    persona_options = {
+        "Mental Palace Counselor": "The balanced and supportive AI that provides empathetic yet structured mental health support.",
+        "Compassionate Listener": "A deeply empathetic AI that focuses on active listening and validation.",
+        "Motivational Coach": "A high-energy AI that encourages and empowers users to take action for self-improvement.",
+        "CBT Guide": "A rational AI that helps reframe negative thoughts using cognitive behavioral techniques."
+    }
+
+    selected_persona = st.sidebar.selectbox("Select a Persona:", list(persona_options.keys()), key="persona_select")
+    st.session_state["selected_persona"] = selected_persona  # Store persona in session state
+    st.sidebar.markdown(f"📝 *{persona_options[selected_persona]}*")
 
     # Fetch user chat sessions
     user_sessions = get_sessions(username)
 
-    # Ensure a default chat session is created on login
-    if not user_sessions:
-        new_session_id, new_session_name = create_new_session(username)
-        user_sessions = [(new_session_id, new_session_name)]  # Add new session to list
-
-    # Store session selection
+    # **Do NOT Open a New Chat Automatically** → Just display a welcome message
     if "selected_session" not in st.session_state:
-        st.session_state["selected_session"] = user_sessions[0][0]  # Default to first session
+        st.session_state["selected_session"] = None  # No session selected by default
 
     # Display available chat sessions
     session_options = {session_name: session_id for session_id, session_name in user_sessions}
     selected_session_name = st.sidebar.radio("Select a chat:", list(session_options.keys()), key="session_select")
 
-    # Update selected session
+    # Update selected session when user clicks
     if selected_session_name:
         st.session_state["selected_session"] = session_options[selected_session_name]
 
-    # New chat button
+    # **New Chat Button (User Must Manually Start)**
     if st.sidebar.button("🆕 New Chat"):
         new_session_id, new_session_name = create_new_session(username)
         if new_session_id:
@@ -62,28 +69,34 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
         st.session_state["selected_session"] = None
         st.rerun()
 
-    # **Chat Interface**
+    # **Display Chat Interface OR Welcome Message**
     if st.session_state["selected_session"]:
         st.write(f"💬 Chat Session: **{selected_session_name}**")
+        st.write(f"🧠 AI Persona: **{st.session_state['selected_persona']}**")  # Show selected persona
 
         # Load chat history
         chat_history = load_chat_history(st.session_state["selected_session"])
         for message, response in chat_history:
-            st.chat_message("user").write(message)
-            st.chat_message("assistant").write(response)
+            st.chat_message("user", avatar="🌸").write(message)  # Neutral emoji for user
+            st.chat_message("assistant", avatar="🤖").write(response)  # Robot for AI
 
         # User input
         user_input = st.chat_input("Type your message here...")
 
         if user_input:
-            response = get_response(st.session_state["username"], user_input)  # Ensures correct user memory
+            response = get_response(username, user_input, st.session_state["selected_persona"])  # Pass persona
 
             # Display chat
-            st.chat_message("user").write(user_input)
-            st.chat_message("assistant").write(response)
+            st.chat_message("user", avatar="🌸").write(user_input)
+            st.chat_message("assistant", avatar="🤖").write(response)
 
             # Save conversation
             save_chat(st.session_state["selected_session"], username, user_input, response)
+
+    else:
+        # **Welcome Message Instead of Auto Chat Start**
+        st.markdown(f"### 👋 Welcome, {username}!")
+        st.markdown("Select an existing chat from the left panel or start a **new chat** to begin.")
 
     # **Logout Button at Bottom of Sidebar**
     st.sidebar.markdown("---")  # Adds a separator
