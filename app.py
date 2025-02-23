@@ -38,13 +38,12 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
     # Fetch user chat sessions
     user_sessions = get_sessions(username)
 
-    # **Do NOT Open a New Chat Automatically** → Just display a welcome message
-    if "selected_session" not in st.session_state:
-        st.session_state["selected_session"] = None  # No session selected by default
+    # **Do NOT Open a Chat Automatically** → Always start with a welcome message
+    st.session_state["selected_session"] = None  # Force session to remain unselected
 
     # Display available chat sessions
     session_options = {session_name: session_id for session_id, session_name in user_sessions}
-    selected_session_name = st.sidebar.radio("Select a chat:", list(session_options.keys()), key="session_select")
+    selected_session_name = st.sidebar.radio("Select a chat:", list(session_options.keys()), key="session_select", index=None)
 
     # Update selected session when user clicks
     if selected_session_name:
@@ -58,13 +57,13 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
             st.rerun()
 
     # Rename session
-    new_name = st.sidebar.text_input("Rename chat:", selected_session_name)
-    if st.sidebar.button("Rename"):
+    new_name = st.sidebar.text_input("Rename chat:", selected_session_name if selected_session_name else "")
+    if st.sidebar.button("Rename") and selected_session_name:
         rename_session(st.session_state["selected_session"], new_name)
         st.rerun()
 
     # Delete session
-    if st.sidebar.button("🗑️ Delete Chat"):
+    if st.sidebar.button("🗑️ Delete Chat") and selected_session_name:
         delete_session(st.session_state["selected_session"])
         st.session_state["selected_session"] = None
         st.rerun()
@@ -94,7 +93,7 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
             save_chat(st.session_state["selected_session"], username, user_input, response)
 
     else:
-        # **Welcome Message Instead of Auto Chat Start**
+        # **Always Show Welcome Message on Login**
         st.markdown(f"### 👋 Welcome, {username}!")
         st.markdown("Select an existing chat from the left panel or start a **new chat** to begin.")
 
